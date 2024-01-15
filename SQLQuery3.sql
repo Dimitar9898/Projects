@@ -1,0 +1,144 @@
+
+	/* Exploring various stocks from the years 2013 to 2018 with S&P 500 stock market data.
+The goal is to provide insights by calculating yearly performances, price differences, average closing prices, and more. */
+
+
+
+/* Count the number of entries for each stock */
+SELECT 
+    [Name], 
+    COUNT (*) AS entry_count
+FROM [Stock Market].[dbo].[StockMarket]
+GROUP BY [Name];
+
+
+
+
+/* The average closing price for stocks starting with the letter 'A' */
+SELECT 
+    [Name],
+    AVG([close]) AS average_closing_price
+FROM [Stock Market].[dbo].[StockMarket]
+WHERE [Name] LIKE 'A%'
+GROUP BY [Name];
+
+
+
+
+
+/* Finding the year in which the average closing rate was the highest, ordering the results in descending order of average closing rates and selecting the highest using TOP 1 */
+SELECT TOP 1
+    YEAR([date]) AS [Year],
+    AVG([close]) AS AverageClosingRate
+FROM
+    [Stock Market].[dbo].[StockMarket]
+GROUP BY
+    YEAR([date])
+ORDER BY
+    AverageClosingRate DESC;
+
+
+
+
+
+/*  Stocks starting with 'B' where the difference between open and close is between 0.1 and 0.5 */
+
+	SELECT 
+    [Name],
+    [open],
+    [close],
+    ([close] - [open]) AS PriceDifference
+FROM [Stock Market].[dbo].[StockMarket]
+WHERE [Name] LIKE 'B%' AND ([close] - [open]) BETWEEN 0.1 AND 0.5;
+
+
+
+
+
+/* Calculating yearly performance for stocks starting with the letter 'C'.
+   The percentage change in closing price is calculated using the formula: ((MAX([close]) - MIN([close])) / MIN([close])) * 100. */
+SELECT 
+    [Name],
+    YEAR([date]) AS [Year],
+    ((MAX([close]) - MIN([close])) / MIN([close])) * 100 AS YearlyPerformance
+FROM 
+    [Stock Market].[dbo].[StockMarket]
+WHERE 
+    [Name] LIKE 'C%'
+GROUP BY 
+    [Name], YEAR([date])
+ORDER BY [Name];
+
+
+
+
+/* Finding stocks with the highest high rate for January of the year 2018, by joining two tables on the name of the stocks */
+SELECT 
+    s.[Name],
+    MAX(s.[high]) AS HighRate
+FROM 
+    [Stock Market].[dbo].[StockMarket] s
+JOIN
+    [Stock Market].[dbo].[Volume] v 
+	ON s.[Name] = v.[Name]
+WHERE 
+    YEAR(s.[date]) = 2018 AND
+	MONTH (s.[date]) = 1
+GROUP BY 
+    s.[Name];
+
+
+
+
+/*  This query calculates the maximum closing rate with the corresponding stock name for each year
+ The RANK function assigns ranks to stocks based on their closing rates for each year
+ */
+WITH RankedStocks AS (
+    SELECT 
+        YEAR([date]) AS [Year],
+        [Name],
+        [close],
+        RANK() OVER (PARTITION BY YEAR([date]) ORDER BY [close] DESC) AS Rank
+    FROM [Stock Market].[dbo].[StockMarket]
+)
+SELECT 
+    [Year],
+    [Name] AS StockWithMaxCloseRate,
+    [close] AS MaxCloseRate
+FROM RankedStocks
+WHERE Rank = 1; /* filters only the rows with the maximum closing rate for each year.*/
+
+
+
+
+
+/* Calculating volume ratio for MSFT stock for the year 2015 for each day from January to March, by using a common table expression for Volume Averages */
+
+WITH VolumeAverages AS (
+    SELECT
+        [Name],
+        AVG([volume]) AS AvgVolume
+    FROM
+        [Stock Market].[dbo].[StockMarket]
+    WHERE
+        YEAR([date]) = 2015
+        AND MONTH([date]) BETWEEN 1 AND 3
+		AND [Name] = 'MSFT' 
+    GROUP BY
+        [Name]
+)
+SELECT
+    s.[Name],
+    s.[date] AS [Date],
+    s.[volume] / va.AvgVolume AS VolumeRatio
+FROM
+    [Stock Market].[dbo].[StockMarket] s
+JOIN
+    VolumeAverages va ON s.[Name] = va.[Name]
+WHERE
+    YEAR(s.[date]) = 2015
+    AND MONTH(s.[date]) BETWEEN 1 AND 3
+	AND s.[Name] = 'MSFT' 
+	
+ORDER BY
+    s.[Name], s.[date];
